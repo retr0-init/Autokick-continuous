@@ -50,7 +50,7 @@ class ExtRetr0initAutokick(interactions.Extension):
 
     reference_time: datetime.datetime = datetime.datetime(1970, 1, 1)
 
-    @self.module_base.subcommand("setup", sub_cmd_description="Setup the autokick feature and generate statistics")
+    @module_base.subcommand("setup", sub_cmd_description="Setup the autokick feature and generate statistics")
     @interactions.check(interactions.is_owner())
     @interactions.slash_option(
         name = "th_message",
@@ -75,34 +75,41 @@ class ExtRetr0initAutokick(interactions.Extension):
         await ctx.defer()
         self.threshold_message = th_message
         self.threshold_days = th_days
-        self.all_members = {
-            mem.id: deque([])
-            for mem in ctx.guild.members
-        }
-        all_channels: list = ctx.guild.channels
+        self.all_members = {mem.id: deque([]) for mem in ctx.guild.members if not mem.bot}
+        all_channels: list = []
+        for cc in ctx.guild.channels:
+            if isinstance(cc, interactions.MessageableMixin):
+                all_channels.append(cc)
+            elif isinstance(cc, interactions.GuildForum):
+                posts = await cc.fetch_posts()
+                all_channels.extend(posts)
+            # else:
+            #     print(type(cc))
         # Get all message in the guild within the day threshold
         for channel in all_channels:
-            async for message in channel.history(limit=0):
-                if now - message.timestamp > datetime.timedelta(days=th_days):
-                    continue
-                for member in all_members.keys():
-                    if message.author.id == member:
-                        all_members[member].append(message)
-                        break
+            if channel.name == "moderator-only":
+                continue
+            if isinstance(channel, interactions.MessageableMixin):
+                async for message in channel.history(limit=0):
+                    if now - message.timestamp > datetime.timedelta(days=th_days):
+                        continue
+                    for member in self.all_members.keys():
+                        if message.author.id == member:
+                            self.all_members[member].append(message)
+                            break
         # Sort the message_id's according to the sent timestamp
         for member in self.all_members.keys():
             self.all_members[member] = deque(sorted(self.all_members[member], key=lambda m: m.timestamp))
         await ctx.send(f"Setup complete! The member who does not send more than {self.threshold_message} messages in {self.threshold_days} days will be kicked.")
         self.reference_time = now
         self.initialised = True
-        internal_t.internal_t_testfunc()
 
     async def kick_member(self, user: int):
         u: interactions.Member = await self.bot.fetch_member(user_id=user, guild_id=DEV_GUILD)
         if u is not None:
-            dm_channel: interactions.DMChannel = await u.fetch_dm()
-            if dm_channel is not None:
-                dm_channel.send(f"您好。由于您在{self.threshold_days}天内在{ctx.guild.name}的发言不足{self.threshold_message}条。根据服务器规则，将把您踢出该服务器。如果您想重返本服务器的话，请重新加入。在此感谢您的理解与支持。祝一切安好。")
+            # dm_channel: interactions.DMChannel = await u.fetch_dm()
+            # if dm_channel is not None:
+            #     dm_channel.send(f"您好。由于您在{self.threshold_days}天内在{ctx.guild.name}的发言不足{self.threshold_message}条。根据服务器规则，将把您踢出该服务器。如果您想重返本服务器的话，请重新加入。在此感谢您的理解与支持。祝一切安好。")
             u.kick(reason=f"From {self.reference_time - datetime.timedelta(days=30)} to {self.reference_time} has less than {self.threshold_message} messages")
             await asyncio.sleep(5)
 
@@ -128,7 +135,7 @@ class ExtRetr0initAutokick(interactions.Extension):
             if len(self.all_members[member]) < self.threshold_message:
                 await self.kick_member(member)
 
-    @self.module_base.subcommand("start", sub_cmd_description="Start the AutoKick system")
+    @module_base.subcommand("start", sub_cmd_description="Start the AutoKick system")
     @interactions.check(interactions.is_owner())
     @interactions.slash_option(
         name = "force",
@@ -152,7 +159,7 @@ class ExtRetr0initAutokick(interactions.Extension):
         self.started = True
         await ctx.send("AutoKick system started")
 
-    @self.module_base.subcommand("stop", sub_cmd_description="Stop the Autokick task")
+    @module_base.subcommand("stop", sub_cmd_description="Stop the Autokick task")
     @interactions.check(interactions.is_owner())
     async def command_stop(self, ctx: interactions.SlashContext):
         if self.kick_task.started:
