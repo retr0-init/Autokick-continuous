@@ -1,3 +1,9 @@
 # 20240127
 - Implemented initial logic.
 - Need testing.
+
+# 20240130
+- Bypass the `moderator-only` channel.
+- Visit all channels including the forum posts.
+- Fix `self` mistake in class method decorators
+- Need testing on kick start
