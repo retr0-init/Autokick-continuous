@@ -104,16 +104,29 @@ class ExtRetr0initAutokick(interactions.Extension):
         self.reference_time = now
         self.initialised = True
 
+    @module_base.subcommand("exclude", sub_cmd_description="Exclude specific roles from being kicked")
+    @interactions.check(interactions.is_owner())
+    @interactions.slash_option(
+        name = "roles",
+        description = "The roles not to be ever kicked",
+        required = True,
+        opt_type = interactions.OptionType.ROLE,
+    )
+    async def command_exclude(self, ctx: interactions.SlashContext, roles: list[interactions.Role]):
+        await ctx.send("OK")
+        print(roles)
+        pass
+
     async def kick_member(self, user: int):
         u: interactions.Member = await self.bot.fetch_member(user_id=user, guild_id=DEV_GUILD)
         if u is not None:
             # dm_channel: interactions.DMChannel = await u.fetch_dm()
             # if dm_channel is not None:
             #     dm_channel.send(f"您好。由于您在{self.threshold_days}天内在{ctx.guild.name}的发言不足{self.threshold_message}条。根据服务器规则，将把您踢出该服务器。如果您想重返本服务器的话，请重新加入。在此感谢您的理解与支持。祝一切安好。")
-            u.kick(reason=f"From {self.reference_time - datetime.timedelta(days=30)} to {self.reference_time} has less than {self.threshold_message} messages")
-            await asyncio.sleep(5)
+            await u.kick(reason=f"From {self.reference_time - datetime.timedelta(days=30)} to {self.reference_time} has less than {self.threshold_message} messages")
+            await asyncio.sleep(2)
 
-    @interactions.Task.create(interactions.IntervalTrigger(hours=12))
+    @interactions.Task.create(interactions.IntervalTrigger(hours=8))
     async def kick_task(self):
         # Start flag guard
         if not self.started:
@@ -127,7 +140,9 @@ class ExtRetr0initAutokick(interactions.Extension):
                     break
                 else:
                     self.all_members[member].popleft()
-            member_obj: interactions.Member = await self.bot.fetch_member(member)
+            member_obj: interactions.Member = await self.bot.fetch_member(member, DEV_GUILD)
+            if member_obj.bot:
+                continue
             if any(map(member_obj.has_role, self.ignored_roles)):
                 continue
             if self.reference_time - member_obj.joined_at < datetime.timedelta(days=self.threshold_days):
@@ -144,6 +159,9 @@ class ExtRetr0initAutokick(interactions.Extension):
         opt_type = interactions.OptionType.BOOLEAN
     )
     async def command_start(self, ctx: interactions.SlashContext, force: bool = False):
+        if self.kick_task.running:
+            await ctx.send("The task has already started!", ephemeral=True)
+            return
         if not self.initialised:
             await ctx.send("Please use the `setup` command at first!", ephemeral=True)
             return
@@ -155,14 +173,22 @@ class ExtRetr0initAutokick(interactions.Extension):
             for mem  in self.all_members.keys()
             if len(self.all_members[mem]) < self.threshold_message
         }
-        self.kick_task.start()
         self.started = True
+        self.kick_task.start()
         await ctx.send("AutoKick system started")
+        self.kick_task.reschedule(
+            interactions.OrTrigger(
+                interactions.DateTrigger(
+                    interactions.Timestamp.now() + datetime.timedelta(seconds=30)
+                ),
+                interactions.IntervalTrigger(hours=8)
+            )
+        )
 
     @module_base.subcommand("stop", sub_cmd_description="Stop the Autokick task")
     @interactions.check(interactions.is_owner())
     async def command_stop(self, ctx: interactions.SlashContext):
-        if self.kick_task.started:
+        if self.kick_task.running:
             self.kick_task.stop()
             self.started = False
             await ctx.send("Autokick System stopped.")
@@ -185,4 +211,7 @@ class ExtRetr0initAutokick(interactions.Extension):
         Prepend message to the list
         '''
         if self.initialised:
-            self.all_members[event.message.author.id].append(event.message)
+            if not event.message.author.bot:
+                if event.message.author.id not in self.all_members.keys():
+                    self.all_members[event.message.author.id] = deque()
+                self.all_members[event.message.author.id].append(event.message)

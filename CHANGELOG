@@ -7,3 +7,7 @@
 - Visit all channels including the forum posts.
 - Fix `self` mistake in class method decorators
 - Need testing on kick start
+
+# 20240201
+- Bugfixes on awaitables, task schedule and bot user exclusion
+- Added excluded roles
