@@ -11,3 +11,8 @@
 # 20240201
 - Bugfixes on awaitables, task schedule and bot user exclusion
 - Added excluded roles
+
+# 20240202
+- Completed role exclusion command
+- Task reschedule bug fixes
+- Updated `README.md`

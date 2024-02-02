@@ -104,18 +104,49 @@ class ExtRetr0initAutokick(interactions.Extension):
         self.reference_time = now
         self.initialised = True
 
+    def role_option_wrapper(name: str, required: bool = False):
+        def wrapper(func):
+            return interactions.slash_option(
+                name = name,
+                description = "The role not to be ever kicked",
+                opt_type = interactions.OptionType.ROLE,
+                required = required
+            )(func)
+        return wrapper
+
     @module_base.subcommand("exclude", sub_cmd_description="Exclude specific roles from being kicked")
     @interactions.check(interactions.is_owner())
-    @interactions.slash_option(
-        name = "roles",
-        description = "The roles not to be ever kicked",
-        required = True,
-        opt_type = interactions.OptionType.ROLE,
-    )
-    async def command_exclude(self, ctx: interactions.SlashContext, roles: list[interactions.Role]):
-        await ctx.send("OK")
-        print(roles)
-        pass
+    @role_option_wrapper("role0", required=True)
+    @role_option_wrapper("role1")
+    @role_option_wrapper("role2")
+    @role_option_wrapper("role3")
+    @role_option_wrapper("role4")
+    @role_option_wrapper("role5")
+    @role_option_wrapper("role6")
+    @role_option_wrapper("role7")
+    @role_option_wrapper("role8")
+    @role_option_wrapper("role9")
+    async def command_exclude(
+        self,
+        ctx: interactions.SlashContext,
+        role0: interactions.Role,
+        role1: interactions.Role = None,
+        role2: interactions.Role = None,
+        role3: interactions.Role = None,
+        role4: interactions.Role = None,
+        role5: interactions.Role = None,
+        role6: interactions.Role = None,
+        role7: interactions.Role = None,
+        role8: interactions.Role = None,
+        role9: interactions.Role = None
+        ):
+        roles: list[interactions.Role] = [role0, role1, role2, role3, role4, role5, role6, role7, role8, role9]
+        added_roles: list[str] = []
+        for role in roles:
+            if role is not None and role not in self.ignored_roles:
+                self.ignored_roles.append(role)
+                added_roles.append(role.name)
+        await ctx.send("The following roles will be ignored:\n- " + '\n- '.join(added_roles))
 
     async def kick_member(self, user: int):
         u: interactions.Member = await self.bot.fetch_member(user_id=user, guild_id=DEV_GUILD)
@@ -179,7 +210,7 @@ class ExtRetr0initAutokick(interactions.Extension):
         self.kick_task.reschedule(
             interactions.OrTrigger(
                 interactions.DateTrigger(
-                    interactions.Timestamp.now() + datetime.timedelta(seconds=30)
+                    datetime.datetime.now() + datetime.timedelta(seconds=30)
                 ),
                 interactions.IntervalTrigger(hours=8)
             )
