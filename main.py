@@ -27,7 +27,7 @@ from config import DEV_GUILD
 Autokick module
 Base: autokick
 '''
-class ExtRetr0initAutokick(interactions.Extension):
+class ExtRetr0initAutokickContinuous(interactions.Extension):
     module_base: interactions.SlashCommand = interactions.SlashCommand(
         name="autokick",
         description="AutoKick System to automatically kick members"
